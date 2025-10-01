@@ -16,9 +16,9 @@ contract DaitsToken is ERC20, AccessControl {
     error ZeroAddressNotAllowed();
     error AmountMustBeGreaterThanZero();
     error SupplyCapExceeded();
-    error RoleGrantFailed();
-    error RoleRevokeFailed();
     error SameAdminAddress();
+    error MintingPaused();
+    error AdminTransferTooSoon();
 
     /// @notice Role identifier for addresses allowed to mint tokens
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -33,6 +33,26 @@ contract DaitsToken is ERC20, AccessControl {
     /// @notice Address of the Safe multisig wallet that controls admin functions
     /// @dev This address has DEFAULT_ADMIN_ROLE and can manage minter roles
     address public multisigWallet;
+
+    /// @notice Deployment timestamp for contract age tracking
+    /// @dev Packed with multisigWallet for gas optimization (slot sharing)
+    uint32 public immutable DEPLOYMENT_TIMESTAMP;
+
+    /// @notice Timestamp of last admin transfer for security monitoring
+    /// @dev Packed storage optimization - shares slot with counters
+    uint32 public lastAdminTransferTime;
+
+    /// @notice Total count of unique addresses that have been granted minter role
+    /// @dev Used for analytics and governance, packed for gas efficiency
+    uint32 public totalMintersGranted;
+
+    /// @notice Sequential counter for admin transfers (governance tracking)
+    /// @dev Packed with other counters for storage optimization
+    uint32 public adminTransferCount;
+
+    /// @notice Emergency pause flag for halting minting operations
+    /// @dev Packed boolean for additional security layer
+    bool public mintingPaused;
 
     /// @notice Emitted when admin role is transferred to a new address
     /// @param previousAdmin Address of the previous admin
@@ -53,6 +73,11 @@ contract DaitsToken is ERC20, AccessControl {
     /// @param maxSupply The maximum supply cap (0 for unlimited)
     event SupplyCapSet(uint256 maxSupply);
 
+    /// @notice Emitted when minting is paused or unpaused
+    /// @param isPaused Whether minting is paused or not
+    /// @param admin Address of admin who changed the pause state
+    event MintingPauseChanged(bool indexed isPaused, address indexed admin);
+
     /**
      * @notice Creates a new DAITS token with specified parameters
      * @dev Sets up ERC20 token with role-based access control and supply cap
@@ -68,13 +93,19 @@ contract DaitsToken is ERC20, AccessControl {
     {
         if (initialAdmin == address(0)) revert ZeroAddressNotAllowed();
 
-        // Set maximum supply (0 = unlimited)
+        // Set immutable values
         MAX_SUPPLY = maxSupply_;
+        DEPLOYMENT_TIMESTAMP = uint32(block.timestamp);
+
+        // Initialize packed storage variables
+        multisigWallet = initialAdmin;
+        lastAdminTransferTime = 0; // No cooldown on initial deployment
+        adminTransferCount = 0;
+        totalMintersGranted = 0;
+        mintingPaused = false;
 
         // Grant admin role to the provided address (should be Safe multisig)
-        bool roleGranted = _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
-        if (!roleGranted) revert RoleGrantFailed();
-        multisigWallet = initialAdmin;
+        _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
 
         emit AdminTransferred(address(0), initialAdmin);
         emit SupplyCapSet(maxSupply_);
@@ -97,6 +128,8 @@ contract DaitsToken is ERC20, AccessControl {
      */
     // aderyn-ignore-next-line(centralization-risk) - Minting is intentionally controlled for token economics
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
+        // Check pause state first (gas optimization: fail fast)
+        if (mintingPaused) revert MintingPaused();
         if (to == address(0)) revert ZeroAddressNotAllowed();
         if (amount == 0) revert AmountMustBeGreaterThanZero();
 
@@ -124,8 +157,18 @@ contract DaitsToken is ERC20, AccessControl {
     // aderyn-ignore-next-line(centralization-risk) - Admin functions require centralized control for governance
     function grantMinterRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (account == address(0)) revert ZeroAddressNotAllowed();
-        bool roleGranted = _grantRole(MINTER_ROLE, account);
-        if (!roleGranted) revert RoleGrantFailed();
+        
+        // Check if account doesn't already have the role before incrementing
+        bool hadRole = hasRole(MINTER_ROLE, account);
+        _grantRole(MINTER_ROLE, account);
+        
+        // Increment counter only for new grants (gas optimization)
+        if (!hadRole) {
+            unchecked {
+                totalMintersGranted++;
+            }
+        }
+        
         emit MinterRoleGranted(account, msg.sender);
     }
 
@@ -142,8 +185,7 @@ contract DaitsToken is ERC20, AccessControl {
      */
     // aderyn-ignore-next-line(centralization-risk) - Admin functions require centralized control for governance
     function revokeMinterRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        bool roleRevoked = _revokeRole(MINTER_ROLE, account);
-        if (!roleRevoked) revert RoleRevokeFailed();
+        _revokeRole(MINTER_ROLE, account);
         emit MinterRoleRevoked(account, msg.sender);
     }
 
@@ -164,20 +206,27 @@ contract DaitsToken is ERC20, AccessControl {
     function transferAdmin(address newAdmin) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newAdmin == address(0)) revert ZeroAddressNotAllowed();
         if (newAdmin == multisigWallet) revert SameAdminAddress();
+        
+        // Security: Prevent rapid admin transfers (24 hour cooldown after first transfer)
+        if (lastAdminTransferTime != 0 && block.timestamp < lastAdminTransferTime + 1 days) {
+            revert AdminTransferTooSoon();
+        }
 
         address oldAdmin = multisigWallet;
 
-        // Effects: Update state first
+        // Effects: Update packed state variables efficiently
         multisigWallet = newAdmin;
+        lastAdminTransferTime = uint32(block.timestamp);
+        unchecked {
+            adminTransferCount++;
+        }
 
         // Interactions: External calls last
         // Revoke admin role from current admin
-        bool roleRevoked = _revokeRole(DEFAULT_ADMIN_ROLE, oldAdmin);
-        if (!roleRevoked) revert RoleRevokeFailed();
+        _revokeRole(DEFAULT_ADMIN_ROLE, oldAdmin);
 
         // Grant admin role to new admin
-        bool roleGranted = _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
-        if (!roleGranted) revert RoleGrantFailed();
+        _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
 
         emit AdminTransferred(oldAdmin, newAdmin);
     }
@@ -196,9 +245,67 @@ contract DaitsToken is ERC20, AccessControl {
     // aderyn-ignore-next-line(centralization-risk) - Function eliminates centralization entirely
     function renounceAdminRole() external onlyRole(DEFAULT_ADMIN_ROLE) {
         address currentAdmin = multisigWallet;
-        bool roleRevoked = _revokeRole(DEFAULT_ADMIN_ROLE, currentAdmin);
-        if (!roleRevoked) revert RoleRevokeFailed();
+        
+        // Update state variables
         multisigWallet = address(0);
+        lastAdminTransferTime = uint32(block.timestamp);
+        unchecked {
+            adminTransferCount++;
+        }
+        
+        _revokeRole(DEFAULT_ADMIN_ROLE, currentAdmin);
+        
         emit AdminTransferred(currentAdmin, address(0));
+    }
+
+    /**
+     * @notice Pauses minting operations for emergency situations
+     * @dev Only admin can pause minting to halt operations if needed
+     * @custom:requires Caller must have DEFAULT_ADMIN_ROLE
+     */
+    function pauseMinting() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        mintingPaused = true;
+        emit MintingPauseChanged(true, msg.sender);
+    }
+
+    /**
+     * @notice Unpauses minting operations
+     * @dev Only admin can unpause minting to restore normal operations
+     * @custom:requires Caller must have DEFAULT_ADMIN_ROLE
+     */
+    function unpauseMinting() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        mintingPaused = false;
+        emit MintingPauseChanged(false, msg.sender);
+    }
+
+    /**
+     * @notice Returns contract deployment age in seconds
+     * @dev Gas-efficient view function using immutable timestamp
+     * @return age Contract age in seconds since deployment
+     */
+    function getContractAge() external view returns (uint256 age) {
+        unchecked {
+            age = block.timestamp - DEPLOYMENT_TIMESTAMP;
+        }
+    }
+
+    /**
+     * @notice Returns time until next admin transfer is allowed
+     * @dev Helps UI show cooldown period for admin transfers
+     * @return cooldownRemaining Seconds until next transfer allowed (0 if ready)
+     */
+    function getAdminTransferCooldown() external view returns (uint256 cooldownRemaining) {
+        // No cooldown if never transferred before
+        if (lastAdminTransferTime == 0) {
+            return 0;
+        }
+        
+        uint256 nextAllowedTime = lastAdminTransferTime + 1 days;
+        if (block.timestamp >= nextAllowedTime) {
+            return 0;
+        }
+        unchecked {
+            cooldownRemaining = nextAllowedTime - block.timestamp;
+        }
     }
 }

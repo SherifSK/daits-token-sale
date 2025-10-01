@@ -223,6 +223,11 @@ contract DaitsTokenFuzzTest is Test {
         for (uint8 i = 0; i < numTransfers; i++) {
             address nextAdmin = makeAddr(string(abi.encodePacked("admin", i)));
 
+            // Fast forward 25 hours to bypass cooldown (except for first transfer)
+            if (i > 0) {
+                vm.warp(block.timestamp + 25 hours);
+            }
+
             vm.prank(currentAdmin);
             token.transferAdmin(nextAdmin);
 

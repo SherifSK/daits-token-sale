@@ -455,18 +455,23 @@ contract DaitsTokenTest is Test {
         // Grant role first time (should succeed)
         token.grantMinterRole(minter);
         assertTrue(token.hasRole(token.MINTER_ROLE(), minter));
+        assertEq(token.totalMintersGranted(), 1);
 
-        // Grant role again (should revert because role already exists)
-        vm.expectRevert(abi.encodeWithSignature("RoleGrantFailed()"));
+        // Grant role again (OpenZeppelin allows this, should not increment counter)
         token.grantMinterRole(minter);
+        assertTrue(token.hasRole(token.MINTER_ROLE(), minter));
+        assertEq(token.totalMintersGranted(), 1); // Counter should not increment
 
         vm.stopPrank();
     }
 
     function test_EdgeCase_RevokeNonExistentRole() public {
-        // Should revert when revoking role that was never granted (OpenZeppelin returns false)
-        vm.expectRevert(abi.encodeWithSignature("RoleRevokeFailed()"));
+        // OpenZeppelin AccessControl allows revoking non-existent roles (no-op)
+        assertFalse(token.hasRole(token.MINTER_ROLE(), minter));
+        
         vm.prank(admin);
-        token.revokeMinterRole(minter);
+        token.revokeMinterRole(minter); // Should not revert
+        
+        assertFalse(token.hasRole(token.MINTER_ROLE(), minter));
     }
 }
