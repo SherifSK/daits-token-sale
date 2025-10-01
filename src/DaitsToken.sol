@@ -158,7 +158,11 @@ contract DaitsToken is ERC20, AccessControl {
         require(newAdmin != multisigWallet, "DaitsToken: new admin is the same as current");
 
         address oldAdmin = multisigWallet;
+        
+        // Effects: Update state first
+        multisigWallet = newAdmin;
 
+        // Interactions: External calls last
         // Revoke admin role from current admin
         bool roleRevoked = _revokeRole(DEFAULT_ADMIN_ROLE, oldAdmin);
         require(roleRevoked, "DaitsToken: failed to revoke admin role from old admin");
@@ -167,7 +171,6 @@ contract DaitsToken is ERC20, AccessControl {
         bool roleGranted = _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
         require(roleGranted, "DaitsToken: failed to grant admin role to new admin");
 
-        multisigWallet = newAdmin;
         emit AdminTransferred(oldAdmin, newAdmin);
     }
 
