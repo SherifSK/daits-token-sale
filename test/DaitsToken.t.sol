@@ -333,7 +333,8 @@ contract DaitsTokenTest is Test {
 
         // Test transfer
         vm.prank(alice);
-        token.transfer(bob, 500e18);
+        bool transferSuccess = token.transfer(bob, 500e18);
+        assertTrue(transferSuccess);
 
         assertEq(token.balanceOf(alice), 500e18);
         assertEq(token.balanceOf(bob), 500e18);
@@ -343,7 +344,8 @@ contract DaitsTokenTest is Test {
         token.approve(bob, 200e18);
 
         vm.prank(bob);
-        token.transferFrom(alice, charlie, 200e18);
+        bool transferFromSuccess = token.transferFrom(alice, charlie, 200e18);
+        assertTrue(transferFromSuccess);
 
         assertEq(token.balanceOf(alice), 300e18);
         assertEq(token.balanceOf(charlie), 200e18);
