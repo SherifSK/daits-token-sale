@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {Script, console} from "@forge-std/Script.sol";
-import {DaitsToken} from "../src/daitsToken.sol";
+import {DaitsToken} from "../src/DaitsToken.sol";
 
 /**
  * @title Deploy DAITS Token Script

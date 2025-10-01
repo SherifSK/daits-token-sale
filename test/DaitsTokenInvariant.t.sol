@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test, console} from "@forge-std/Test.sol";
 import {StdInvariant} from "@forge-std/StdInvariant.sol";
-import {DaitsToken} from "../src/daitsToken.sol";
+import {DaitsToken} from "../src/DaitsToken.sol";
 
 /**
  * @title DAITS Token Invariant Tests
