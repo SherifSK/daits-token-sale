@@ -12,19 +12,19 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 contract DaitsToken is ERC20, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    
+
     // Maximum supply cap (0 = unlimited, >0 = capped supply)
     uint256 public immutable MAX_SUPPLY;
-    
+
     // Events for transparency
     event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
     event MinterRoleGranted(address indexed account, address indexed admin);
     event MinterRoleRevoked(address indexed account, address indexed admin);
     event SupplyCapSet(uint256 maxSupply);
-    
+
     // Safe multisig wallet address (to be set after deployment)
     address public multisigWallet;
-    
+
     /**
      * @dev Constructor sets up initial roles and supply cap
      * @param name_ Token name
@@ -32,26 +32,23 @@ contract DaitsToken is ERC20, AccessControl {
      * @param initialAdmin Address that will receive initial admin role (should be Safe multisig)
      * @param maxSupply_ Maximum supply cap (0 for unlimited, >0 for capped supply)
      */
-    constructor(
-        string memory name_, 
-        string memory symbol_,
-        address initialAdmin,
-        uint256 maxSupply_
-    ) ERC20(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_, address initialAdmin, uint256 maxSupply_)
+        ERC20(name_, symbol_)
+    {
         require(initialAdmin != address(0), "DaitsToken: initial admin cannot be zero address");
-        
+
         // Set maximum supply (0 = unlimited)
         MAX_SUPPLY = maxSupply_;
-        
+
         // Grant admin role to the provided address (should be Safe multisig)
         bool roleGranted = _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
         require(roleGranted, "DaitsToken: failed to grant admin role");
         multisigWallet = initialAdmin;
-        
+
         emit AdminTransferred(address(0), initialAdmin);
         emit SupplyCapSet(maxSupply_);
     }
-    
+
     /**
      * @dev Mint tokens - only callable by accounts with MINTER_ROLE
      * @param to Address to mint tokens to
@@ -66,18 +63,15 @@ contract DaitsToken is ERC20, AccessControl {
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
         require(to != address(0), "DaitsToken: cannot mint to zero address");
         require(amount > 0, "DaitsToken: amount must be greater than zero");
-        
+
         // Check supply cap if set (0 means unlimited)
         if (MAX_SUPPLY > 0) {
-            require(
-                totalSupply() + amount <= MAX_SUPPLY, 
-                "DaitsToken: would exceed maximum supply cap"
-            );
+            require(totalSupply() + amount <= MAX_SUPPLY, "DaitsToken: would exceed maximum supply cap");
         }
-        
+
         _mint(to, amount);
     }
-    
+
     /**
      * @dev Grant minter role - only callable by admin (multisig)
      * @param account Address to grant minter role to
@@ -94,7 +88,7 @@ contract DaitsToken is ERC20, AccessControl {
         require(roleGranted, "DaitsToken: failed to grant minter role");
         emit MinterRoleGranted(account, msg.sender);
     }
-    
+
     /**
      * @dev Revoke minter role - only callable by admin (multisig)
      * @param account Address to revoke minter role from
@@ -109,7 +103,7 @@ contract DaitsToken is ERC20, AccessControl {
         require(roleRevoked, "DaitsToken: failed to revoke minter role");
         emit MinterRoleRevoked(account, msg.sender);
     }
-    
+
     /**
      * @dev Transfer admin role to new multisig - only callable by current admin
      * @param newAdmin Address of new admin (should be new Safe multisig)
@@ -122,21 +116,21 @@ contract DaitsToken is ERC20, AccessControl {
     function transferAdmin(address newAdmin) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newAdmin != address(0), "DaitsToken: new admin cannot be zero address");
         require(newAdmin != multisigWallet, "DaitsToken: new admin is the same as current");
-        
+
         address oldAdmin = multisigWallet;
-        
+
         // Revoke admin role from current admin
         bool roleRevoked = _revokeRole(DEFAULT_ADMIN_ROLE, oldAdmin);
         require(roleRevoked, "DaitsToken: failed to revoke admin role from old admin");
-        
+
         // Grant admin role to new admin
         bool roleGranted = _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
         require(roleGranted, "DaitsToken: failed to grant admin role to new admin");
-        
+
         multisigWallet = newAdmin;
         emit AdminTransferred(oldAdmin, newAdmin);
     }
-    
+
     /**
      * @dev Emergency function to renounce admin role - makes contract immutable
      * @notice This action is irreversible and will make the contract non-upgradeable
