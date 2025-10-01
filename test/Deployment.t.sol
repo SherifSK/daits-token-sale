@@ -66,7 +66,7 @@ contract DeploymentTest is Test {
     }
 
     function test_Deployment_RevertInvalidAdmin() public {
-        vm.expectRevert("DaitsToken: initial admin cannot be zero address");
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddressNotAllowed()"));
         new DaitsToken("DAITS Token", "DAITS", address(0), 1000000e18);
     }
 

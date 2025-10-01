@@ -60,8 +60,8 @@ contract DaitsTokenTest is Test {
     }
 
     function test_Constructor_RevertZeroAdmin() public {
-        vm.expectRevert("DaitsToken: initial admin cannot be zero address");
-        new DaitsToken(TOKEN_NAME, TOKEN_SYMBOL, address(0), MAX_SUPPLY);
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddressNotAllowed()"));
+        new DaitsToken("Test Token", "TEST", address(0), 0);
     }
 
     function test_Constructor_EmitsEvents() public {
@@ -99,27 +99,27 @@ contract DaitsTokenTest is Test {
         vm.prank(admin);
         token.grantMinterRole(minter);
 
-        vm.expectRevert("DaitsToken: cannot mint to zero address");
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddressNotAllowed()"));
         vm.prank(minter);
         token.mint(address(0), 1000e18);
     }
 
     function test_Mint_RevertZeroAmount() public {
         vm.prank(admin);
-        token.grantMinterRole(minter);
-
-        vm.expectRevert("DaitsToken: amount must be greater than zero");
-        vm.prank(minter);
-        token.mint(alice, 0);
+        token.grantMinterRole(address(this));
+        
+        vm.prank(address(this));
+        vm.expectRevert(DaitsToken.AmountMustBeGreaterThanZero.selector);
+        token.mint(address(0x1), 0);
     }
 
     function test_Mint_RevertExceedsSupplyCap() public {
         vm.prank(admin);
-        token.grantMinterRole(minter);
-
-        vm.expectRevert("DaitsToken: would exceed maximum supply cap");
-        vm.prank(minter);
-        token.mint(alice, MAX_SUPPLY + 1);
+        token.grantMinterRole(address(this));
+        
+        vm.prank(address(this));
+        vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
+        token.mint(address(0x1), MAX_SUPPLY + 1);
     }
 
     function test_Mint_MultipleMintsUpToCapLimit() public {
@@ -134,7 +134,7 @@ contract DaitsTokenTest is Test {
         assertEq(token.totalSupply(), MAX_SUPPLY);
 
         // Should revert on next mint
-        vm.expectRevert("DaitsToken: would exceed maximum supply cap");
+        vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
         vm.prank(minter);
         token.mint(charlie, 1);
     }
@@ -172,7 +172,7 @@ contract DaitsTokenTest is Test {
     }
 
     function test_GrantMinterRole_RevertZeroAddress() public {
-        vm.expectRevert("DaitsToken: cannot grant role to zero address");
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddressNotAllowed()"));
         vm.prank(admin);
         token.grantMinterRole(address(0));
     }
@@ -223,13 +223,13 @@ contract DaitsTokenTest is Test {
     }
 
     function test_TransferAdmin_RevertZeroAddress() public {
-        vm.expectRevert("DaitsToken: new admin cannot be zero address");
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddressNotAllowed()"));
         vm.prank(admin);
         token.transferAdmin(address(0));
     }
 
     function test_TransferAdmin_RevertSameAdmin() public {
-        vm.expectRevert("DaitsToken: new admin is the same as current");
+        vm.expectRevert(abi.encodeWithSignature("SameAdminAddress()"));
         vm.prank(admin);
         token.transferAdmin(admin);
     }
@@ -373,7 +373,7 @@ contract DaitsTokenTest is Test {
         vm.prank(admin);
         token.grantMinterRole(minter);
 
-        vm.expectRevert("DaitsToken: would exceed maximum supply cap");
+        vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
         vm.prank(minter);
         token.mint(alice, amount);
     }
@@ -444,7 +444,7 @@ contract DaitsTokenTest is Test {
         assertEq(token.totalSupply(), MAX_SUPPLY);
 
         // Next mint should fail
-        vm.expectRevert("DaitsToken: would exceed maximum supply cap");
+        vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
         vm.prank(minter);
         token.mint(alice, 1);
     }
@@ -457,7 +457,7 @@ contract DaitsTokenTest is Test {
         assertTrue(token.hasRole(token.MINTER_ROLE(), minter));
 
         // Grant role again (should revert because role already exists)
-        vm.expectRevert("DaitsToken: failed to grant minter role");
+        vm.expectRevert(abi.encodeWithSignature("RoleGrantFailed()"));
         token.grantMinterRole(minter);
 
         vm.stopPrank();
@@ -465,7 +465,7 @@ contract DaitsTokenTest is Test {
 
     function test_EdgeCase_RevokeNonExistentRole() public {
         // Should revert when revoking role that was never granted (OpenZeppelin returns false)
-        vm.expectRevert("DaitsToken: failed to revoke minter role");
+        vm.expectRevert(abi.encodeWithSignature("RoleRevokeFailed()"));
         vm.prank(admin);
         token.revokeMinterRole(minter);
     }

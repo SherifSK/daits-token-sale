@@ -12,6 +12,14 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  * @custom:security-contact security@daits.io
  */
 contract DaitsToken is ERC20, AccessControl {
+    /// @notice Custom errors for gas-efficient reverts
+    error ZeroAddressNotAllowed();
+    error AmountMustBeGreaterThanZero();
+    error SupplyCapExceeded();
+    error RoleGrantFailed();
+    error RoleRevokeFailed();
+    error SameAdminAddress();
+
     /// @notice Role identifier for addresses allowed to mint tokens
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
@@ -58,14 +66,14 @@ contract DaitsToken is ERC20, AccessControl {
     constructor(string memory name_, string memory symbol_, address initialAdmin, uint256 maxSupply_)
         ERC20(name_, symbol_)
     {
-        require(initialAdmin != address(0), "DaitsToken: initial admin cannot be zero address");
+        if (initialAdmin == address(0)) revert ZeroAddressNotAllowed();
 
         // Set maximum supply (0 = unlimited)
         MAX_SUPPLY = maxSupply_;
 
         // Grant admin role to the provided address (should be Safe multisig)
         bool roleGranted = _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
-        require(roleGranted, "DaitsToken: failed to grant admin role");
+        if (!roleGranted) revert RoleGrantFailed();
         multisigWallet = initialAdmin;
 
         emit AdminTransferred(address(0), initialAdmin);
@@ -89,12 +97,12 @@ contract DaitsToken is ERC20, AccessControl {
      */
     // aderyn-ignore-next-line(centralization-risk) - Minting is intentionally controlled for token economics
     function mint(address to, uint256 amount) external onlyRole(MINTER_ROLE) {
-        require(to != address(0), "DaitsToken: cannot mint to zero address");
-        require(amount > 0, "DaitsToken: amount must be greater than zero");
+        if (to == address(0)) revert ZeroAddressNotAllowed();
+        if (amount == 0) revert AmountMustBeGreaterThanZero();
 
         // Check supply cap if set (0 means unlimited)
         if (MAX_SUPPLY > 0) {
-            require(totalSupply() + amount <= MAX_SUPPLY, "DaitsToken: would exceed maximum supply cap");
+            if (totalSupply() + amount > MAX_SUPPLY) revert SupplyCapExceeded();
         }
 
         _mint(to, amount);
@@ -115,9 +123,9 @@ contract DaitsToken is ERC20, AccessControl {
      */
     // aderyn-ignore-next-line(centralization-risk) - Admin functions require centralized control for governance
     function grantMinterRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(account != address(0), "DaitsToken: cannot grant role to zero address");
+        if (account == address(0)) revert ZeroAddressNotAllowed();
         bool roleGranted = _grantRole(MINTER_ROLE, account);
-        require(roleGranted, "DaitsToken: failed to grant minter role");
+        if (!roleGranted) revert RoleGrantFailed();
         emit MinterRoleGranted(account, msg.sender);
     }
 
@@ -135,7 +143,7 @@ contract DaitsToken is ERC20, AccessControl {
     // aderyn-ignore-next-line(centralization-risk) - Admin functions require centralized control for governance
     function revokeMinterRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         bool roleRevoked = _revokeRole(MINTER_ROLE, account);
-        require(roleRevoked, "DaitsToken: failed to revoke minter role");
+        if (!roleRevoked) revert RoleRevokeFailed();
         emit MinterRoleRevoked(account, msg.sender);
     }
 
@@ -154,8 +162,8 @@ contract DaitsToken is ERC20, AccessControl {
      */
     // aderyn-ignore-next-line(centralization-risk) - Admin transfer enables decentralization progression
     function transferAdmin(address newAdmin) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newAdmin != address(0), "DaitsToken: new admin cannot be zero address");
-        require(newAdmin != multisigWallet, "DaitsToken: new admin is the same as current");
+        if (newAdmin == address(0)) revert ZeroAddressNotAllowed();
+        if (newAdmin == multisigWallet) revert SameAdminAddress();
 
         address oldAdmin = multisigWallet;
 
@@ -165,11 +173,11 @@ contract DaitsToken is ERC20, AccessControl {
         // Interactions: External calls last
         // Revoke admin role from current admin
         bool roleRevoked = _revokeRole(DEFAULT_ADMIN_ROLE, oldAdmin);
-        require(roleRevoked, "DaitsToken: failed to revoke admin role from old admin");
+        if (!roleRevoked) revert RoleRevokeFailed();
 
         // Grant admin role to new admin
         bool roleGranted = _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
-        require(roleGranted, "DaitsToken: failed to grant admin role to new admin");
+        if (!roleGranted) revert RoleGrantFailed();
 
         emit AdminTransferred(oldAdmin, newAdmin);
     }
@@ -189,7 +197,7 @@ contract DaitsToken is ERC20, AccessControl {
     function renounceAdminRole() external onlyRole(DEFAULT_ADMIN_ROLE) {
         address currentAdmin = multisigWallet;
         bool roleRevoked = _revokeRole(DEFAULT_ADMIN_ROLE, currentAdmin);
-        require(roleRevoked, "DaitsToken: failed to renounce admin role");
+        if (!roleRevoked) revert RoleRevokeFailed();
         multisigWallet = address(0);
         emit AdminTransferred(currentAdmin, address(0));
     }
