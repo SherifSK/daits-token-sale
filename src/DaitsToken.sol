@@ -14,7 +14,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 contract DaitsToken is ERC20, AccessControl {
     /// @notice Role identifier for addresses allowed to mint tokens
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    
+
     /// @notice Role identifier for addresses allowed to pause token operations
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -30,17 +30,17 @@ contract DaitsToken is ERC20, AccessControl {
     /// @param previousAdmin Address of the previous admin
     /// @param newAdmin Address of the new admin
     event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
-    
+
     /// @notice Emitted when minter role is granted to an address
     /// @param account Address that received the minter role
     /// @param admin Address of the admin who granted the role
     event MinterRoleGranted(address indexed account, address indexed admin);
-    
+
     /// @notice Emitted when minter role is revoked from an address
     /// @param account Address that lost the minter role
     /// @param admin Address of the admin who revoked the role
     event MinterRoleRevoked(address indexed account, address indexed admin);
-    
+
     /// @notice Emitted when the supply cap is set during construction
     /// @param maxSupply The maximum supply cap (0 for unlimited)
     event SupplyCapSet(uint256 maxSupply);
@@ -158,7 +158,7 @@ contract DaitsToken is ERC20, AccessControl {
         require(newAdmin != multisigWallet, "DaitsToken: new admin is the same as current");
 
         address oldAdmin = multisigWallet;
-        
+
         // Effects: Update state first
         multisigWallet = newAdmin;
 
