@@ -112,7 +112,7 @@ contract DaitsTokenSecurityTest is Test {
         assertEq(token.totalSupply(), MAX_SUPPLY);
 
         // Any further minting should fail
-        vm.expectRevert("DaitsToken: would exceed maximum supply cap");
+        vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
         vm.prank(makeAddr("minter1"));
         token.mint(user, 1);
     }
@@ -122,9 +122,9 @@ contract DaitsTokenSecurityTest is Test {
         token.grantMinterRole(minter);
 
         // Try to mint maximum possible uint256 (should be caught by supply cap)
-        vm.expectRevert("DaitsToken: would exceed maximum supply cap");
+        vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
         vm.prank(minter);
-        token.mint(user, type(uint256).max);
+        token.mint(address(0x2), type(uint256).max);
     }
 
     /* ============ Role Management Security Tests ============ */

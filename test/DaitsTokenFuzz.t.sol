@@ -153,7 +153,7 @@ contract DaitsTokenFuzzTest is Test {
         vm.prank(admin);
         token.grantMinterRole(minter1);
 
-        vm.expectRevert("DaitsToken: would exceed maximum supply cap");
+        vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
         vm.prank(minter1);
         token.mint(alice, amount);
     }
@@ -162,7 +162,7 @@ contract DaitsTokenFuzzTest is Test {
         vm.prank(admin);
         token.grantMinterRole(minter1);
 
-        vm.expectRevert("DaitsToken: amount must be greater than zero");
+        vm.expectRevert(abi.encodeWithSignature("AmountMustBeGreaterThanZero()"));
         vm.prank(minter1);
         token.mint(alice, 0);
     }
@@ -221,6 +221,11 @@ contract DaitsTokenFuzzTest is Test {
         for (uint8 i = 0; i < numTransfers; i++) {
             address nextAdmin = makeAddr(string(abi.encodePacked("admin", i)));
 
+            // Fast forward 25 hours to bypass cooldown (except for first transfer)
+            if (i > 0) {
+                vm.warp(block.timestamp + 25 hours);
+            }
+
             vm.prank(currentAdmin);
             token.transferAdmin(nextAdmin);
 
@@ -236,11 +241,11 @@ contract DaitsTokenFuzzTest is Test {
     function testFuzz_AdminTransfer_InvalidAddresses(address newAdmin) public {
         // Only test specific invalid cases to avoid too many rejected inputs
         if (newAdmin == address(0)) {
-            vm.expectRevert("DaitsToken: new admin cannot be zero address");
+            vm.expectRevert(abi.encodeWithSignature("ZeroAddressNotAllowed()"));
             vm.prank(admin);
             token.transferAdmin(newAdmin);
         } else if (newAdmin == admin) {
-            vm.expectRevert("DaitsToken: new admin must be different from current admin");
+            vm.expectRevert(abi.encodeWithSignature("SameAdminAddress()"));
             vm.prank(admin);
             token.transferAdmin(newAdmin);
         }
@@ -349,7 +354,7 @@ contract DaitsTokenFuzzTest is Test {
 
         // If second mint would exceed cap, it should fail
         if (supply1 + supply2 > MAX_SUPPLY) {
-            vm.expectRevert("DaitsToken: would exceed maximum supply cap");
+            vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
             vm.prank(minter1);
             token.mint(bob, supply2);
 
