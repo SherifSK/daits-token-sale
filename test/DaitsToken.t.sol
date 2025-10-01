@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Test, console} from "@forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 import {DaitsToken} from "../src/DaitsToken.sol";
 
 /**
@@ -38,6 +38,7 @@ contract DaitsTokenTest is Test {
 
     /* ============ Constructor Tests ============ */
 
+    /// @dev Compiler suggests 'view' but test functions should remain non-view for Foundry framework compatibility
     function test_Constructor_Success() public {
         // Test basic token properties
         assertEq(token.name(), TOKEN_NAME);
