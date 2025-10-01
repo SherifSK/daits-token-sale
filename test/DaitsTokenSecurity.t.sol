@@ -15,6 +15,9 @@ contract DaitsTokenSecurityTest is Test {
     address public attacker = makeAddr("attacker");
     address public minter = makeAddr("minter");
     address public user = makeAddr("user");
+    address public alice = makeAddr("alice");
+    address public bob = makeAddr("bob");
+    address public newAdmin = makeAddr("newAdmin");
     
     uint256 constant MAX_SUPPLY = 1000000e18;
     
@@ -161,7 +164,6 @@ contract DaitsTokenSecurityTest is Test {
     /* ============ Frontrunning Protection Tests ============ */
     
     function test_Security_AdminTransferNotFrontrunnable() public {
-        address newAdmin = makeAddr("newAdmin");
         
         // Simulate frontrunning attempt
         vm.expectRevert();
@@ -197,25 +199,32 @@ contract DaitsTokenSecurityTest is Test {
     /* ============ State Consistency Tests ============ */
     
     function test_Security_StateConsistencyAfterRoleChanges() public {
-        // Grant and revoke roles multiple times
-        vm.startPrank(admin);
-        
+        // Grant minter role
+        vm.prank(admin);
         token.grantMinterRole(minter);
-        assertTrue(token.hasRole(token.MINTER_ROLE(), minter));
         
-        token.revokeMinterRole(minter);
-        assertFalse(token.hasRole(token.MINTER_ROLE(), minter));
-        
-        token.grantMinterRole(minter);
-        assertTrue(token.hasRole(token.MINTER_ROLE(), minter));
-        
-        vm.stopPrank();
-        
-        // Minter should work after regrant
+        // Mint some tokens
         vm.prank(minter);
-        token.mint(user, 1000e18);
+        token.mint(alice, 100000e18);
         
-        assertEq(token.balanceOf(user), 1000e18);
+        // Transfer admin
+        vm.prank(admin);
+        token.transferAdmin(newAdmin);
+        
+        // New admin should be able to manage roles
+        vm.prank(newAdmin);
+        token.revokeMinterRole(minter);
+        
+        // Old admin should not be able to manage roles
+        vm.expectRevert();
+        vm.prank(admin);
+        token.grantMinterRole(bob);
+        
+        // State should be consistent
+        assertEq(token.totalSupply(), 100000e18);
+        assertEq(token.balanceOf(alice), 100000e18);
+        assertEq(token.multisigWallet(), newAdmin);
+        assertFalse(token.hasRole(token.MINTER_ROLE(), minter));
     }
     
     /* ============ Invariant Tests ============ */
@@ -243,7 +252,6 @@ contract DaitsTokenSecurityTest is Test {
         assertTrue(token.hasRole(token.DEFAULT_ADMIN_ROLE(), admin));
         
         // Transfer admin
-        address newAdmin = makeAddr("newAdmin");
         vm.prank(admin);
         token.transferAdmin(newAdmin);
         
