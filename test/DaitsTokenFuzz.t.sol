@@ -5,9 +5,7 @@ import {Test} from "@forge-std/Test.sol";
 import {DaitsToken} from "../src/DaitsToken.sol";
 
 /**
-         vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
-        vm.prank(minter);
-        token.mint(alice, amount);title DAITS Token Comprehensive Fuzzing Test Suite
+ * @title DAITS Token Comprehensive Fuzzing Test Suite
  * @dev Extensive fuzz testing for edge cases and boundary conditions
  */
 contract DaitsTokenFuzzTest is Test {

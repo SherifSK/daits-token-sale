@@ -157,18 +157,18 @@ contract DaitsToken is ERC20, AccessControl {
     // aderyn-ignore-next-line(centralization-risk) - Admin functions require centralized control for governance
     function grantMinterRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (account == address(0)) revert ZeroAddressNotAllowed();
-        
+
         // Check if account doesn't already have the role before incrementing
         bool hadRole = hasRole(MINTER_ROLE, account);
         _grantRole(MINTER_ROLE, account);
-        
+
         // Increment counter only for new grants (gas optimization)
         if (!hadRole) {
             unchecked {
                 totalMintersGranted++;
             }
         }
-        
+
         emit MinterRoleGranted(account, msg.sender);
     }
 
@@ -206,7 +206,7 @@ contract DaitsToken is ERC20, AccessControl {
     function transferAdmin(address newAdmin) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newAdmin == address(0)) revert ZeroAddressNotAllowed();
         if (newAdmin == multisigWallet) revert SameAdminAddress();
-        
+
         // Security: Prevent rapid admin transfers (24 hour cooldown after first transfer)
         if (lastAdminTransferTime != 0 && block.timestamp < lastAdminTransferTime + 1 days) {
             revert AdminTransferTooSoon();
@@ -245,16 +245,16 @@ contract DaitsToken is ERC20, AccessControl {
     // aderyn-ignore-next-line(centralization-risk) - Function eliminates centralization entirely
     function renounceAdminRole() external onlyRole(DEFAULT_ADMIN_ROLE) {
         address currentAdmin = multisigWallet;
-        
+
         // Update state variables
         multisigWallet = address(0);
         lastAdminTransferTime = uint32(block.timestamp);
         unchecked {
             adminTransferCount++;
         }
-        
+
         _revokeRole(DEFAULT_ADMIN_ROLE, currentAdmin);
-        
+
         emit AdminTransferred(currentAdmin, address(0));
     }
 
@@ -299,7 +299,7 @@ contract DaitsToken is ERC20, AccessControl {
         if (lastAdminTransferTime == 0) {
             return 0;
         }
-        
+
         uint256 nextAllowedTime = lastAdminTransferTime + 1 days;
         if (block.timestamp >= nextAllowedTime) {
             return 0;

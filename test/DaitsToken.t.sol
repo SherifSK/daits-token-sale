@@ -107,7 +107,7 @@ contract DaitsTokenTest is Test {
     function test_Mint_RevertZeroAmount() public {
         vm.prank(admin);
         token.grantMinterRole(address(this));
-        
+
         vm.prank(address(this));
         vm.expectRevert(DaitsToken.AmountMustBeGreaterThanZero.selector);
         token.mint(address(0x1), 0);
@@ -116,7 +116,7 @@ contract DaitsTokenTest is Test {
     function test_Mint_RevertExceedsSupplyCap() public {
         vm.prank(admin);
         token.grantMinterRole(address(this));
-        
+
         vm.prank(address(this));
         vm.expectRevert(abi.encodeWithSignature("SupplyCapExceeded()"));
         token.mint(address(0x1), MAX_SUPPLY + 1);
@@ -468,10 +468,10 @@ contract DaitsTokenTest is Test {
     function test_EdgeCase_RevokeNonExistentRole() public {
         // OpenZeppelin AccessControl allows revoking non-existent roles (no-op)
         assertFalse(token.hasRole(token.MINTER_ROLE(), minter));
-        
+
         vm.prank(admin);
         token.revokeMinterRole(minter); // Should not revert
-        
+
         assertFalse(token.hasRole(token.MINTER_ROLE(), minter));
     }
 }
