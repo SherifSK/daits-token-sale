@@ -12,7 +12,13 @@
 
 ---
 
-# 📖 API Reference
+# � Security Framework
+
+- [🔑 Key Management Framework](security/key-management-framework.md)
+
+---
+
+# �📖 API Reference
 
 - [📚 API Overview](src/README.md)
 - [📄 DaitsToken Contract](src/DaitsToken.sol/contract.DaitsToken.md)
