@@ -215,7 +215,7 @@ contract DaitsToken is ERC20, AccessControl {
     // aderyn-ignore-next-line(centralization-risk) - Admin functions require centralized control for governance
     function grantPauserRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (account == address(0)) revert ZeroAddressNotAllowed();
-        
+
         _grantRole(PAUSER_ROLE, account);
         emit PauserRoleGranted(account, msg.sender);
     }
@@ -320,7 +320,7 @@ contract DaitsToken is ERC20, AccessControl {
         if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
             revert("AccessControl: account is missing role");
         }
-        
+
         mintingPaused = true;
         emit MintingPauseChanged(true, msg.sender);
     }
@@ -339,7 +339,7 @@ contract DaitsToken is ERC20, AccessControl {
         if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
             revert("AccessControl: account is missing role");
         }
-        
+
         mintingPaused = false;
         emit MintingPauseChanged(false, msg.sender);
     }
