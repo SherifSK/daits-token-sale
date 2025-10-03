@@ -1,5 +1,5 @@
 # DaitsToken
-[Git Source](https://github.com/SherifSK/daits-token-sale/blob/e42eae5e9ecad95437acedaf3cabcb2b6d50542c/src/DaitsToken.sol)
+[Git Source](https://github.com/SherifSK/daits-token-sale/blob/6d7d2acba2cc974843810a6158fc7c8d04306a72/src/DaitsToken.sol)
 
 **Inherits:**
 ERC20, AccessControl
@@ -53,6 +53,61 @@ Address of the Safe multisig wallet that controls admin functions
 
 ```solidity
 address public multisigWallet;
+```
+
+
+### DEPLOYMENT_TIMESTAMP
+Deployment timestamp for contract age tracking
+
+*Packed with multisigWallet for gas optimization (slot sharing)*
+
+
+```solidity
+uint32 public immutable DEPLOYMENT_TIMESTAMP;
+```
+
+
+### lastAdminTransferTime
+Timestamp of last admin transfer for security monitoring
+
+*Packed storage optimization - shares slot with counters*
+
+
+```solidity
+uint32 public lastAdminTransferTime;
+```
+
+
+### totalMintersGranted
+Total count of unique addresses that have been granted minter role
+
+*Used for analytics and governance, packed for gas efficiency*
+
+
+```solidity
+uint32 public totalMintersGranted;
+```
+
+
+### adminTransferCount
+Sequential counter for admin transfers (governance tracking)
+
+*Packed with other counters for storage optimization*
+
+
+```solidity
+uint32 public adminTransferCount;
+```
+
+
+### mintingPaused
+Emergency pause flag for halting minting operations
+
+*Packed boolean for additional security layer*
+
+
+```solidity
+bool public mintingPaused;
 ```
 
 
@@ -227,6 +282,68 @@ Permanently renounces admin role making the contract immutable
 function renounceAdminRole() external onlyRole(DEFAULT_ADMIN_ROLE);
 ```
 
+### pauseMinting
+
+Pauses minting operations for emergency situations
+
+*Only admin can pause minting to halt operations if needed*
+
+**Note:**
+requires: Caller must have DEFAULT_ADMIN_ROLE
+
+
+```solidity
+function pauseMinting() external onlyRole(DEFAULT_ADMIN_ROLE);
+```
+
+### unpauseMinting
+
+Unpauses minting operations
+
+*Only admin can unpause minting to restore normal operations*
+
+**Note:**
+requires: Caller must have DEFAULT_ADMIN_ROLE
+
+
+```solidity
+function unpauseMinting() external onlyRole(DEFAULT_ADMIN_ROLE);
+```
+
+### getContractAge
+
+Returns contract deployment age in seconds
+
+*Gas-efficient view function using immutable timestamp*
+
+
+```solidity
+function getContractAge() external view returns (uint256 age);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`age`|`uint256`|Contract age in seconds since deployment|
+
+
+### getAdminTransferCooldown
+
+Returns time until next admin transfer is allowed
+
+*Helps UI show cooldown period for admin transfers*
+
+
+```solidity
+function getAdminTransferCooldown() external view returns (uint256 cooldownRemaining);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`cooldownRemaining`|`uint256`|Seconds until next transfer allowed (0 if ready)|
+
+
 ## Events
 ### AdminTransferred
 Emitted when admin role is transferred to a new address
@@ -286,4 +403,58 @@ event SupplyCapSet(uint256 maxSupply);
 |Name|Type|Description|
 |----|----|-----------|
 |`maxSupply`|`uint256`|The maximum supply cap (0 for unlimited)|
+
+### MintingPauseChanged
+Emitted when minting is paused or unpaused
+
+
+```solidity
+event MintingPauseChanged(bool indexed isPaused, address indexed admin);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`isPaused`|`bool`|Whether minting is paused or not|
+|`admin`|`address`|Address of admin who changed the pause state|
+
+## Errors
+### ZeroAddressNotAllowed
+Custom errors for gas-efficient reverts
+
+
+```solidity
+error ZeroAddressNotAllowed();
+```
+
+### AmountMustBeGreaterThanZero
+
+```solidity
+error AmountMustBeGreaterThanZero();
+```
+
+### SupplyCapExceeded
+
+```solidity
+error SupplyCapExceeded();
+```
+
+### SameAdminAddress
+
+```solidity
+error SameAdminAddress();
+```
+
+### MintingPaused
+
+```solidity
+error MintingPaused();
+```
+
+### AdminTransferTooSoon
+
+```solidity
+error AdminTransferTooSoon();
+```
 
