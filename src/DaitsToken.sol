@@ -75,8 +75,18 @@ contract DaitsToken is ERC20, AccessControl {
 
     /// @notice Emitted when minting is paused or unpaused
     /// @param isPaused Whether minting is paused or not
-    /// @param admin Address of admin who changed the pause state
-    event MintingPauseChanged(bool indexed isPaused, address indexed admin);
+    /// @param pauser Address who changed the pause state (admin or pauser)
+    event MintingPauseChanged(bool indexed isPaused, address indexed pauser);
+
+    /// @notice Emitted when pauser role is granted to an address
+    /// @param account Address that received the pauser role
+    /// @param admin Address of the admin who granted the role
+    event PauserRoleGranted(address indexed account, address indexed admin);
+
+    /// @notice Emitted when pauser role is revoked from an address
+    /// @param account Address that lost the pauser role
+    /// @param admin Address of the admin who revoked the role
+    event PauserRoleRevoked(address indexed account, address indexed admin);
 
     /**
      * @notice Creates a new DAITS token with specified parameters
@@ -190,6 +200,44 @@ contract DaitsToken is ERC20, AccessControl {
     }
 
     /**
+     * @notice Grants pauser role to the specified address
+     * @dev Only admin (multisig) can call this function to grant pause privileges
+     * @param account The address to grant pauser role to
+     * @custom:requires Caller must have DEFAULT_ADMIN_ROLE
+     * @custom:requires account must not be zero address
+     * @custom:emits PauserRoleGranted
+     * @custom:security CENTRALIZATION RISK MITIGATION:
+     * - Admin role controlled by Safe multisig (requires multiple signatures)
+     * - Role grants transparent via events and on-chain visibility
+     * - Enables dedicated emergency response without full admin access
+     * - Separates pause operations from critical admin functions
+     */
+    // aderyn-ignore-next-line(centralization-risk) - Admin functions require centralized control for governance
+    function grantPauserRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (account == address(0)) revert ZeroAddressNotAllowed();
+        
+        _grantRole(PAUSER_ROLE, account);
+        emit PauserRoleGranted(account, msg.sender);
+    }
+
+    /**
+     * @notice Revokes pauser role from the specified address
+     * @dev Only admin (multisig) can call this function to remove pause privileges
+     * @param account The address to revoke pauser role from
+     * @custom:requires Caller must have DEFAULT_ADMIN_ROLE
+     * @custom:emits PauserRoleRevoked
+     * @custom:security CENTRALIZATION RISK MITIGATION:
+     * - Admin role controlled by Safe multisig (multiple signatures required)
+     * - Role revocations transparent and logged via events
+     * - Provides mechanism to remove compromised pausers
+     */
+    // aderyn-ignore-next-line(centralization-risk) - Admin functions require centralized control for governance
+    function revokePauserRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _revokeRole(PAUSER_ROLE, account);
+        emit PauserRoleRevoked(account, msg.sender);
+    }
+
+    /**
      * @notice Transfers admin role to a new multisig address
      * @dev Only current admin can call this function to transfer control
      * @param newAdmin The address of the new admin (should be new Safe multisig)
@@ -260,20 +308,38 @@ contract DaitsToken is ERC20, AccessControl {
 
     /**
      * @notice Pauses minting operations for emergency situations
-     * @dev Only admin can pause minting to halt operations if needed
-     * @custom:requires Caller must have DEFAULT_ADMIN_ROLE
+     * @dev Both admin and pauser roles can pause minting for emergency response
+     * @custom:requires Caller must have DEFAULT_ADMIN_ROLE or PAUSER_ROLE
+     * @custom:emits MintingPauseChanged
+     * @custom:security EMERGENCY RESPONSE:
+     * - Enables rapid response to security threats
+     * - Dedicated pausers can act without full admin privileges
+     * - Both admin and pauser roles provide redundant emergency control
      */
-    function pauseMinting() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pauseMinting() external {
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
+            revert("AccessControl: account is missing role");
+        }
+        
         mintingPaused = true;
         emit MintingPauseChanged(true, msg.sender);
     }
 
     /**
      * @notice Unpauses minting operations
-     * @dev Only admin can unpause minting to restore normal operations
-     * @custom:requires Caller must have DEFAULT_ADMIN_ROLE
+     * @dev Both admin and pauser roles can unpause minting to restore operations
+     * @custom:requires Caller must have DEFAULT_ADMIN_ROLE or PAUSER_ROLE
+     * @custom:emits MintingPauseChanged
+     * @custom:security OPERATIONAL FLEXIBILITY:
+     * - Enables quick recovery from emergency pause
+     * - Dedicated pausers can restore operations independently
+     * - Reduces dependency on full admin access for routine operations
      */
-    function unpauseMinting() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpauseMinting() external {
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender) && !hasRole(PAUSER_ROLE, msg.sender)) {
+            revert("AccessControl: account is missing role");
+        }
+        
         mintingPaused = false;
         emit MintingPauseChanged(false, msg.sender);
     }
